@@ -16,85 +16,91 @@ class MissingValueProcessor:
         """
         Retorna um novo dataset contendo apenas as linhas que possuem
         pelo menos um valor nulo (None) em uma das colunas especificadas.
-
-        Args:
-            columns (Set[str]): Um conjunto de nomes de colunas a serem verificadas.
-                            Se vazio, todas as colunas são consideradas.
-
-        Returns:
-            Dict[str, List[Any]]: Um dicionário representando as linhas com valores nulos.
         """
-        pass
+        target_cols = self._get_target_columns(columns)
+        num_rows = len(next(iter(self.dataset.values())))
+        subset = {col: [] for col in self.dataset.keys()}
+        
+        for i in range(num_rows):
+            if any(self.dataset[col][i] is None for col in target_cols):
+                for col in self.dataset.keys():
+                    subset[col].append(self.dataset[col][i])
+        return subset
 
     def notna(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
         """
         Retorna um novo dataset contendo apenas as linhas que não possuem
         valores nulos (None) em nenhuma das colunas especificadas.
-
-        Args:
-            columns (Set[str]): Um conjunto de nomes de colunas a serem verificadas.
-                               Se vazio, todas as colunas são consideradas.
-
-        Returns:
-            Dict[str, List[Any]]: Um dicionário representando as linhas sem valores nulos.
         """
-        pass
+        target_cols = self._get_target_columns(columns)
+        num_rows = len(next(iter(self.dataset.values())))
+        subset = {col: [] for col in self.dataset.keys()}
+        
+        for i in range(num_rows):
+            if all(self.dataset[col][i] is not None for col in target_cols):
+                for col in self.dataset.keys():
+                    subset[col].append(self.dataset[col][i])
+        return subset
 
     def fillna(self, columns: Set[str] = None, value: Any = 0) -> Dict[str, List[Any]]:
         """
         Preenche valores nulos (None) nas colunas especificadas com um valor fixo.
         Modifica o dataset da classe.
-
-        Args:
-            columns (Set[str]): Colunas onde o preenchimento será aplicado. 
-                               Se vazio, aplica a todas as colunas do dataset.
-            value (Any): Valor a ser inserido no lugar de None.
-
-        Returns:
-            Preprocessing: A própria instância (self) para permitir encadeamento.
         """
-        pass
+        target_cols = self._get_target_columns(columns)
+        for col in target_cols:
+            self.dataset[col] = [value if x is None else x for x in self.dataset[col]]
+        return self.dataset
 
     def dropna(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
         """
         Remove as linhas que contêm valores nulos (None) nas colunas especificadas.
         Modifica o dataset da classe.
-
-        Args:
-            columns (Set[str]): Colunas a serem verificadas para valores nulos. Se vazio, todas as colunas são verificadas.
         """
-        pass
+        target_cols = self._get_target_columns(columns)
+        num_rows = len(next(iter(self.dataset.values())))
+        indices_validos = [i for i in range(num_rows) 
+                          if all(self.dataset[col][i] is not None for col in target_cols)]
+        
+        for col in self.dataset.keys():
+            self.dataset[col] = [self.dataset[col][i] for i in indices_validos]
+        return self.dataset
 
 
 class Scaler:
     """
     Aplica transformações de escala em colunas numéricas do dataset.
     """
-    def __init__(self, dataset: Dict[str, List[Any]]):
+    def __init__(self, dataset: Dict[str, List[Any]], stats_obj: Statistics = None):
         self.dataset = dataset
+        self.stats = stats_obj
 
     def _get_target_columns(self, columns: Set[str]) -> List[str]:
         return list(columns) if columns else list(self.dataset.keys())
 
     def minMax_scaler(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
         """
-        Aplica a normalização Min-Max ($X_{norm} = \frac{X - X_{min}}{X_{max} - X_{min}}$)
-        nas colunas especificadas. Modifica o dataset.
-
-        Args:
-            columns (Set[str]): Colunas para aplicar o scaler. Se vazio, tenta aplicar a todas.
+        Aplica a normalização Min-Max nas colunas especificadas. Modifica o dataset.
         """
-        pass
+        target_cols = self._get_target_columns(columns)
+        for col in target_cols:
+            dados = self.dataset[col]
+            v_min, v_max = min(dados), max(dados)
+            diff = v_max - v_min
+            self.dataset[col] = [(x - v_min) / diff if diff != 0 else 0.0 for x in dados]
+        return self.dataset
 
     def standard_scaler(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
         """
-        Aplica a padronização Z-score ($X_{std} = \frac{X - \mu}{\sigma}$)
-        nas colunas especificadas. Modifica o dataset.
-
-        Args:
-            columns (Set[str]): Colunas para aplicar o scaler. Se vazio, tenta aplicar a todas.
+        Aplica a padronização Z-score nas colunas especificadas. Modifica o dataset.
         """
-        pass
+        target_cols = self._get_target_columns(columns)
+        for col in target_cols:
+            mu = self.stats.mean(col)
+            sigma = self.stats.stdev(col)
+            self.dataset[col] = [(x - mu) / sigma if sigma != 0 else 0.0 for x in self.dataset[col]]
+        return self.dataset
+
 
 class Encoder:
     """
@@ -107,84 +113,73 @@ class Encoder:
         """
         Converte cada categoria em uma coluna em um número inteiro.
         Modifica o dataset.
-
-        Args:
-            columns (Set[str]): Colunas categóricas para codificar.
         """
-        pass
+        for col in columns:
+            categorias = sorted(list(set(self.dataset[col])))
+            mapping = {val: i for i, val in enumerate(categorias)}
+            self.dataset[col] = [mapping[v] for v in self.dataset[col]]
+        return self.dataset
 
     def oneHot_encode(self, columns: Set[str]) -> Dict[str, List[Any]]:
         """
-        Cria novas colunas binárias para cada categoria nas colunas especificadas (One-Hot Encoding).
+        Cria novas colunas binárias para cada categoria (One-Hot Encoding).
         Modifica o dataset adicionando e removendo colunas.
-
-        Args:
-            columns (Set[str]): Colunas categóricas para codificar.
         """
-        pass
+        for col in list(columns):
+            categorias = sorted(list(set(self.dataset[col])))
+            original = self.dataset.pop(col)
+            for cat in categorias:
+                self.dataset[f"{col}_{cat}"] = [1 if x == cat else 0 for x in original]
+        return self.dataset
 
 
 class Preprocessing:
     """
     Classe principal que orquestra as operações de pré-processamento de dados.
-    Nota: Todos os métodos retornam o dicionário de dados (dataset), 
-    o que encerra a possibilidade de encadeamento de métodos da classe.
     """
     def __init__(self, dataset: Dict[str, List[Any]]):
         self.dataset = dataset
         self._validate_dataset_shape()
         
-        self.statistics = Statistics(self.dataset)
+        # Tentativa inicial de criar Statistics (pode falhar se houver nulos)
+        try:
+            self.statistics = Statistics(self.dataset)
+        except:
+            self.statistics = None
+
         self.missing_values = MissingValueProcessor(self.dataset)
-        self.scaler = Scaler(self.dataset)
+        self.scaler = Scaler(self.dataset, self.statistics)
         self.encoder = Encoder(self.dataset)
 
     def _validate_dataset_shape(self):
-        """
-        Valida se todas as listas (colunas) no dicionário do dataset
-        têm o mesmo comprimento.
-        """
-        pass
+        """Valida se todas as colunas têm o mesmo comprimento."""
+        if not self.dataset: return
+        lengths = [len(v) for v in self.dataset.values()]
+        if len(set(lengths)) > 1:
+            raise ValueError("Todas as colunas devem ter o mesmo comprimento.")
 
     def isna(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
-        """
-        Atalho para missing_values.isna(). 
-        Retorna um dicionário contendo apenas as linhas com valores nulos.
-        """
         return self.missing_values.isna(columns)
 
     def notna(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
-        """
-        Atalho para missing_values.notna(). 
-        Retorna um dicionário contendo apenas as linhas sem valores nulos.
-        """
         return self.missing_values.notna(columns)
 
     def fillna(self, columns: Set[str] = None, value: Any = 0) -> Dict[str, List[Any]]:
-        """
-        Atalho para missing_values.fillna(). 
-        Modifica e retorna o dicionário de dados com valores preenchidos.
-        """
-        return self.missing_values.fillna(columns, value)
+        self.missing_values.fillna(columns, value)
+        self._update_stats()
+        return self.dataset
 
     def dropna(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
-        """
-        Atalho para missing_values.dropna(). 
-        Modifica e retorna o dicionário de dados sem as linhas nulas.
-        """
-        return self.missing_values.dropna(columns)
+        self.missing_values.dropna(columns)
+        self._update_stats()
+        return self.dataset
+
+    def _update_stats(self):
+        """Atualiza a instância de Statistics após limpeza de dados."""
+        self.statistics = Statistics(self.dataset)
+        self.scaler.stats = self.statistics
 
     def scale(self, columns: Set[str] = None, method: str = 'minMax') -> Dict[str, List[Any]]:
-        """
-        Aplica escalonamento e retorna o dicionário de dados modificado.
-
-        Args:
-            columns (Set[str]): Colunas para aplicar o escalonamento.
-            method (str): O método a ser usado: 'minMax' ou 'standard'.
-
-        Returns:
-            Dict[str, List[Any]]: O dataset com as colunas escalonadas.
-        """
         if method == 'minMax':
             return self.scaler.minMax_scaler(columns)
         elif method == 'standard':
@@ -193,16 +188,6 @@ class Preprocessing:
             raise ValueError(f"Método de escalonamento '{method}' não suportado.")
 
     def encode(self, columns: Set[str], method: str = 'label') -> Dict[str, List[Any]]:
-        """
-        Aplica codificação e retorna o dicionário de dados modificado.
-
-        Args:
-            columns (Set[str]): Colunas para aplicar a codificação.
-            method (str): O método a ser usado: 'label' ou 'oneHot'.
-        
-        Returns:
-            Dict[str, List[Any]]: O dataset com as colunas codificadas.
-        """
         if method == 'label':
             return self.encoder.label_encode(columns)
         elif method == 'oneHot':
