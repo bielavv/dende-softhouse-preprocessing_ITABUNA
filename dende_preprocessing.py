@@ -30,8 +30,21 @@ class MissingValueProcessor:
 
     def fillna(self, columns: Set[str] = None, value: Any = 0) -> Dict[str, List[Any]]:
         target_cols = self._get_target_columns(columns)
+        
         for col in target_cols:
-            self.dataset[col] = [value if x is None else x for x in self.dataset[col]]
+            valores_nao_nulos = [x for x in self.dataset[col] if x is not None]
+            if valores_nao_nulos and all(isinstance(x, (int, float)) for x in valores_nao_nulos):
+                valor_float = float(value)
+                self.dataset[col] = [
+                    float(x) if x is not None else valor_float 
+                    for x in self.dataset[col]
+                ]
+            else:
+                self.dataset[col] = [
+                    value if x is None else x 
+                    for x in self.dataset[col]
+                ]
+        
         return self.dataset
 
     def dropna(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
@@ -55,18 +68,18 @@ class Scaler:
         target_cols = self._get_target_columns(columns)
         for col in target_cols:
             dados = self.dataset[col]
+
+
             v_min, v_max = min(dados), max(dados)
             diff = v_max - v_min
             self.dataset[col] = [(x - v_min) / diff if diff != 0 else 0.0 for x in dados]
+            
         return self.dataset
 
     def standard_scaler(self, columns: Set[str] = None) -> Dict[str, List[Any]]:
         target_cols = self._get_target_columns(columns)
         
         for col in target_cols:
-            # Em vez de validar o dataset todo, criamos uma Statistics 
-            # apenas para a coluna que estamos mexendo agora.
-            # Isso evita que o erro na coluna 'city' trave o cálculo da 'age'.
             col_stats = Statistics({col: self.dataset[col]})
             
             mu = col_stats.mean(col)
@@ -82,10 +95,8 @@ class Encoder:
 
     def label_encode(self, columns: Set[str]) -> Dict[str, List[Any]]:
         for col in columns:
-            # Convertemos para str antes de ordenar para evitar erro de tipos mistos
             categorias = sorted(list(set(str(x) for x in self.dataset[col])))
             mapping = {val: i for i, val in enumerate(categorias)}
-            # Aplicamos o mapeamento convertendo o valor atual para string também
             self.dataset[col] = [mapping[str(v)] for v in self.dataset[col]]
         return self.dataset
 
@@ -135,7 +146,6 @@ class Preprocessing:
         return self.dataset
 
     def _update_stats_safely(self):
-        """Tenta atualizar estatísticas sem quebrar por causa de tipos mistos."""
         try:
             self.statistics = Statistics(self.dataset)
             self.scaler.stats = self.statistics
