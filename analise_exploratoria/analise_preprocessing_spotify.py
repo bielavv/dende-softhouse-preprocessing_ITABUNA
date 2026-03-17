@@ -15,7 +15,7 @@ def carregar_spotify():
     """Carrega o dataset Spotify"""
     import csv
     
-    nome_arquivo = 'spotify_data_clean.csv'
+    nome_arquivo = 'track_data_final.csv'
     dados = {}
     
     with open(nome_arquivo, 'r', encoding='utf-8') as file:
@@ -32,7 +32,7 @@ def carregar_spotify():
                 try:
                     if coluna in ['track_popularity', 'artist_popularity', 
                                   'artist_followers', 'album_total_tracks', 
-                                  'track_duration_min']:
+                                  'track_duration_ms']:
                         if valor == '' or valor == 'N/A':
                             dados[coluna].append(None)
                         elif '.' in valor:
@@ -54,20 +54,18 @@ def analisar_preprocessing():
     print("ANÁLISE DE PRÉ-PROCESSAMENTO - SPOTIFY")
     print("=" * 60)
     
-    # 1. CARREGAR DADOS
     dados_originais = carregar_spotify()
     dados_trabalho = copy.deepcopy(dados_originais)
     prep = Preprocessing(dados_trabalho)
     
     total_linhas = len(dados_trabalho['track_id'])
     print(f"\n1. DATASET ORIGINAL: {total_linhas} linhas")
-    
-    # 2. ANÁLISE DE VALORES NULOS
+
     print("\n2. VALORES NULOS")
     
     colunas_numericas = ['track_popularity', 'artist_popularity', 
                          'artist_followers', 'album_total_tracks', 
-                         'track_duration_min']
+                         'track_duration_ms']
     
     colunas_categoricas = ['explicit', 'album_type']
     
@@ -85,13 +83,10 @@ def analisar_preprocessing():
             if qtd > 0:
                 print(f"     - {coluna}: {qtd} nulos ({qtd/total_linhas*100:.1f}%)")
     
-    # 3. TRATAMENTO DE NULOS
     print("\n3. TRATAMENTO DE NULOS")
     
-    # fillna em colunas numéricas
     prep.fillna(columns=set(colunas_numericas), value=0)
     
-    # Verificar resultado
     nulos_restantes = 0
     for coluna in colunas_numericas:
         qtd = sum(1 for v in dados_trabalho[coluna] if v is None)
@@ -102,7 +97,6 @@ def analisar_preprocessing():
     else:
         print(f"   - Ainda restam {nulos_restantes} nulos")
     
-    # 4. ESCALONAMENTO MIN-MAX
     print("\n4. ESCALONAMENTO MIN-MAX")
     
     stats_antes = Statistics(dados_trabalho)
@@ -123,10 +117,8 @@ def analisar_preprocessing():
             if valores:
                 print(f"     {coluna}: min={min(valores):.2f}, max={max(valores):.2f}")
     
-    # 5. CODIFICAÇÃO LABEL ENCODING
     print("\n5. LABEL ENCODING")
-    
-    # Criar novo dataset para encoding
+
     dados_encode = copy.deepcopy(dados_originais)
     prep_encode = Preprocessing(dados_encode)
     
@@ -143,7 +135,6 @@ def analisar_preprocessing():
         if coluna in dados_encode:
             print(f"     {coluna}: {dados_encode[coluna][:5]}")
     
-    # 6. DEMONSTRAÇÃO ONE-HOT ENCODING
     print("\n6. ONE-HOT ENCODING")
     
     dados_onehot = {
@@ -162,17 +153,6 @@ def analisar_preprocessing():
     colunas_onehot = [c for c in prep_onehot.dataset.keys() if '_' in c]
     for coluna in sorted(colunas_onehot)[:3]:
         print(f"     {coluna}: {prep_onehot.dataset[coluna]}")
-    
-    # 7. RESUMO
-    print("\n" + "=" * 60)
-    print("RESUMO DAS OPERAÇÕES")
-    print("=" * 60)
-    print("✓ Identificação de valores nulos")
-    print("✓ Preenchimento de nulos (fillna)")
-    print("✓ Escalonamento Min-Max")
-    print("✓ Label Encoding")
-    print("✓ One-Hot Encoding")
-    print("\nDataset pronto para modelagem!")
 
 if __name__ == "__main__":
     analisar_preprocessing()
