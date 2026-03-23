@@ -29,20 +29,37 @@ class MissingValueProcessor:
         return subset
 
     def fillna(self, columns: Set[str] = None, value: Any = 0) -> Dict[str, List[Any]]:
+   
         target_cols = self._get_target_columns(columns)
         
         for col in target_cols:
-            valores_nao_nulos = [x for x in self.dataset[col] if x is not None]
-            if valores_nao_nulos and all(isinstance(x, (int, float)) for x in valores_nao_nulos):
-                valor_float = float(value)
-                self.dataset[col] = [
-                    float(x) if x is not None else valor_float 
-                    for x in self.dataset[col]
-                ]
+            if col not in self.dataset:
+                continue
+            
+            dados = self.dataset[col]
+            valores_nao_nulos = [x for x in dados if x is not None]
+            
+            if valores_nao_nulos:
+                todos_numericos = all(isinstance(x, (int, float)) for x in valores_nao_nulos)
+                
+                if todos_numericos:
+                    try:
+                        valor_preenchimento = float(value)
+                    except (ValueError, TypeError):
+                        valor_preenchimento = 0.0
+                    self.dataset[col] = [
+                        float(x) if x is not None else valor_preenchimento
+                        for x in dados
+                    ]
+                else:
+                    self.dataset[col] = [
+                        value if x is None else x
+                        for x in dados
+                    ]
             else:
                 self.dataset[col] = [
-                    value if x is None else x 
-                    for x in self.dataset[col]
+                    value if x is None else x
+                    for x in dados
                 ]
         
         return self.dataset
